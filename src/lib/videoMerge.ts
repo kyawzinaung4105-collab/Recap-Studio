@@ -131,13 +131,16 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
   // Set up the video element
   const video = document.createElement('video');
   video.src = videoUrl;
-  video.crossOrigin = 'anonymous';
+  // Object URLs are same-origin blobs; setting crossOrigin on them can make some
+  // mobile browsers reject an otherwise valid local upload.
+  if (!videoUrl.startsWith('blob:') && !videoUrl.startsWith('data:')) video.crossOrigin = 'anonymous';
   video.muted = !!audioUrl; // mute original if we have custom audio
   video.playsInline = true;
 
   await new Promise<void>((resolve, reject) => {
     video.onloadedmetadata = () => resolve();
-    video.onerror = () => reject(new Error('Failed to load video'));
+    video.onerror = () => reject(new Error('Failed to load video. Please use an MP4 (H.264/AAC) or WebM file.'));
+    video.load();
   });
 
   const width = video.videoWidth || 1280;

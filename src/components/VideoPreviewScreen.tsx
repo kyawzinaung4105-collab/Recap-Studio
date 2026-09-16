@@ -27,18 +27,20 @@ export function VideoPreviewScreen({ videoUrl, audioUrl, subtitles, language, mo
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [muted, setMuted] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const activeCue = getActiveCue(subtitles, currentTime);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
     const onTimeUpdate = () => setCurrentTime(video.currentTime);
+    const onError = () => setLoadError('ဒီ video format ကို browser က မဖွင့်နိုင်ပါ။ MP4 (H.264/AAC) သို့မဟုတ် WebM ဖိုင်ကို ပြန်တင်ကြည့်ပါ။');
     const onLoadedMetadata = () => { const value = Number.isFinite(video.duration) ? video.duration : 0; setDuration(value); onDurationChange?.(value); };
     const onPlay = () => { setPlaying(true); if (audioRef.current && audioUrl) { audioRef.current.currentTime = video.currentTime; audioRef.current.play().catch(() => {}); } };
     const onPause = () => { setPlaying(false); audioRef.current?.pause(); };
     const onSeeked = () => { if (audioRef.current && audioUrl) audioRef.current.currentTime = video.currentTime; };
-    video.addEventListener('timeupdate', onTimeUpdate); video.addEventListener('loadedmetadata', onLoadedMetadata); video.addEventListener('durationchange', onLoadedMetadata); video.addEventListener('play', onPlay); video.addEventListener('pause', onPause); video.addEventListener('seeked', onSeeked);
-    return () => { video.removeEventListener('timeupdate', onTimeUpdate); video.removeEventListener('loadedmetadata', onLoadedMetadata); video.removeEventListener('durationchange', onLoadedMetadata); video.removeEventListener('play', onPlay); video.removeEventListener('pause', onPause); video.removeEventListener('seeked', onSeeked); };
+    video.addEventListener('timeupdate', onTimeUpdate); video.addEventListener('loadedmetadata', onLoadedMetadata); video.addEventListener('durationchange', onLoadedMetadata); video.addEventListener('error', onError); video.addEventListener('play', onPlay); video.addEventListener('pause', onPause); video.addEventListener('seeked', onSeeked);
+    return () => { video.removeEventListener('timeupdate', onTimeUpdate); video.removeEventListener('loadedmetadata', onLoadedMetadata); video.removeEventListener('durationchange', onLoadedMetadata); video.removeEventListener('error', onError); video.removeEventListener('play', onPlay); video.removeEventListener('pause', onPause); video.removeEventListener('seeked', onSeeked); };
   }, [audioUrl, onDurationChange]);
 
   const togglePlay = () => { const video = videoRef.current; if (!video) return; if (video.paused) video.play().catch(() => {}); else video.pause(); };
@@ -72,6 +74,7 @@ export function VideoPreviewScreen({ videoUrl, audioUrl, subtitles, language, mo
   return <div className="space-y-4">
     <div ref={previewRef} onPointerMove={moveBlur} onPointerUp={stopBlurDrag} onPointerCancel={stopBlurDrag} className="relative overflow-hidden rounded-2xl bg-black shadow-2xl group">
       <video ref={videoRef} src={videoUrl} className="aspect-video w-full object-contain" playsInline preload="metadata" />
+      {loadError && <div className="absolute inset-x-4 top-4 rounded-lg border border-red-400/30 bg-red-950/80 p-3 text-center text-xs text-red-200">{loadError}</div>}
       {audioUrl && <audio ref={audioRef} src={audioUrl} crossOrigin="anonymous" />}
       {blurEnabled && blurRegions.filter((region) => region.enabled).map((region) => <div key={region.id} onPointerDown={(event) => startBlurDrag(event, region)} className="absolute cursor-move touch-none rounded-md border-2 border-emerald-300 bg-emerald-400/10" style={{ left: `${region.x}%`, top: `${region.y}%`, width: `${region.width}%`, height: `${region.height}%`, backdropFilter: `blur(${Math.max(2, blurStrength / 4)}px)` }} title="Drag to move blur area"><span className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-xl text-white">✥</span><button type="button" data-resize="true" onPointerDown={(event) => startBlurDrag(event, region)} className="absolute -bottom-2 -right-2 h-5 w-5 cursor-se-resize rounded bg-emerald-300 shadow" aria-label="Resize blur area" /></div>)}
       {activeCue && <div className="absolute left-1/2 max-w-[88%] -translate-x-1/2 rounded-lg bg-black/70 px-4 py-2 backdrop-blur-sm" style={{ bottom: `${100 - subtitleStyle.position}%` }}><p className="text-center font-semibold leading-snug drop-shadow-lg" style={{ color: subtitleStyle.color, fontFamily: subtitleStyle.fontFamily, fontSize: `${Math.max(12, subtitleStyle.fontSize / 1.5)}px`, textShadow: `0 0 ${subtitleStyle.outlineWidth}px ${subtitleStyle.outlineColor}` }}>{activeCue.text}</p></div>}

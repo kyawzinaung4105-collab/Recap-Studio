@@ -12,7 +12,8 @@ export function VideoUpload({ onVideoLoaded, currentFileName }: VideoUploadProps
   const [loading, setLoading] = useState(false);
 
   const handleFile = (file: File) => {
-    if (!file.type.startsWith('video/')) return;
+    const looksLikeVideo = file.type.startsWith('video/') || /\.(mp4|m4v|mov|webm|avi|mkv)$/i.test(file.name);
+    if (!looksLikeVideo) return;
     setLoading(true);
     const url = URL.createObjectURL(file);
     onVideoLoaded(url, file.name);
