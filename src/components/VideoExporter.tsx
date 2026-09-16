@@ -87,7 +87,7 @@ export function VideoExporter({ project, onExport }: VideoExporterProps) {
       {exporting && (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-amber-400">Rendering video with audio + subtitles...</span>
+            <span className="text-amber-400">{progress >= 96 ? 'Converting to MP4 for Gallery / MX Player...' : 'Rendering video with audio + subtitles...'}</span>
             <span className="text-slate-400 font-mono">{progress}%</span>
           </div>
           <div className="h-2 rounded-full bg-slate-800 overflow-hidden">

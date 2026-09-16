@@ -17,12 +17,15 @@ async function convertToMp4(recordedBlob: Blob, onProgress?: (progress: number) 
     });
   }
 
-  onProgress?.(0.97);
+  const progressHandler = ({ progress }: { progress: number }) => onProgress?.(0.96 + Math.min(1, progress) * 0.04);
+  ffmpeg.on('progress', progressHandler);
+  onProgress?.(0.96);
   await ffmpeg.writeFile('recap-input.webm', await fetchFile(recordedBlob));
   await ffmpeg.exec(['-i', 'recap-input.webm', '-c:v', 'libx264', '-preset', 'veryfast', '-c:a', 'aac', '-movflags', '+faststart', 'recap-output.mp4']);
   const output = await ffmpeg.readFile('recap-output.mp4');
   await ffmpeg.deleteFile('recap-input.webm');
   await ffmpeg.deleteFile('recap-output.mp4');
+  ffmpeg.off('progress', progressHandler);
   onProgress?.(1);
   return new Blob([output], { type: 'video/mp4' });
 }
