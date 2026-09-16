@@ -208,16 +208,6 @@ function AppContent() {
                 </div>
               )}
 
-              <VideoEffectsEditor
-                subtitleStyle={project.subtitleStyle}
-                blurEnabled={project.blurEnabled}
-                blurStrength={project.blurStrength}
-                blurRegions={project.blurRegions}
-                onSubtitleStyleChange={(subtitleStyle) => updateProject({ subtitleStyle })}
-                onBlurEnabledChange={(blurEnabled) => updateProject({ blurEnabled })}
-                onBlurStrengthChange={(blurStrength) => updateProject({ blurStrength })}
-                onBlurRegionsChange={(blurRegions) => updateProject({ blurRegions })}
-              />
             </div>
           )}
 
