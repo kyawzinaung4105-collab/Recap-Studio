@@ -111,10 +111,10 @@ export interface ExportOptions {
 /**
  * Export a merged video in the browser using Canvas + MediaRecorder.
  * Burns subtitles into the video and replaces audio with the custom MP3 if provided.
- * Produces a downloadable .webm file.
+ * Produces a downloadable .mp4 (or webm fallback) file with correct metadata.
  */
 export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
-  const { videoUrl, audioUrl, subtitles, movieTitle, language, onProgress } = opts;
+  const { videoUrl, audioUrl, subtitles, movieTitle, onProgress } = opts;
 
   // Set up the video element
   const video = document.createElement('video');
@@ -180,7 +180,6 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
   if (audioStream) {
     audioStream.getAudioTracks().forEach((t) => combinedStream.addTrack(t));
   } else if (!audioUrl) {
-    // Use video's own audio track if available
     try {
       const videoStream = (video as any).captureStream?.() as MediaStream | undefined;
       videoStream?.getAudioTracks().forEach((t) => combinedStream.addTrack(t));
@@ -189,8 +188,10 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
     }
   }
 
-  // Set up MediaRecorder
-  const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+  // Set up MediaRecorder (Prefer MP4 format if supported by mobile/browser for correct duration metadata)
+  const mimeType = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,aac')
+    ? 'video/mp4;codecs=avc1,aac'
+    : MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
     ? 'video/webm;codecs=vp9,opus'
     : MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
     ? 'video/webm;codecs=vp8,opus'
@@ -208,7 +209,8 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
 
   const done = new Promise<Blob>((resolve) => {
     recorder.onstop = () => {
-      resolve(new Blob(chunks, { type: 'video/webm' }));
+      const finalType = mimeType.includes('mp4') ? 'video/mp4' : 'video/webm';
+      resolve(new Blob(chunks, { type: finalType }));
     };
   });
 
@@ -218,10 +220,8 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
   recorder.start(100);
 
   // Render loop: draw video frame + subtitle overlay
-  const startTime = performance.now();
   const renderFrame = () => {
     if (video.ended || video.paused) {
-      // Check if we're done
       if (video.ended) {
         recorder.stop();
         if (audioCtx) audioCtx.close();
@@ -267,18 +267,15 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
         const y = baseY + i * lineHeight;
         const x = width / 2;
 
-        // Text shadow/outline
         ctx.lineWidth = Math.max(2, fontSize / 10);
         ctx.strokeStyle = 'rgba(0,0,0,0.9)';
         ctx.lineJoin = 'round';
         ctx.strokeText(line, x, y);
 
-        // Main text
         ctx.fillStyle = '#FFD700';
         ctx.fillText(line, x, y);
       });
     } else if (movieTitle) {
-      // Draw just the title badge
       ctx.font = `bold ${Math.max(16, Math.floor(height / 40))}px Arial, sans-serif`;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
