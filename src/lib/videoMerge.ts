@@ -10,7 +10,7 @@ async function convertToMp4(recordedBlob: Blob, onProgress?: (progress: number) 
 
   if (!ffmpeg) {
     ffmpeg = new FFmpeg();
-    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd';
+    const baseURL = '/ffmpeg';
     await ffmpeg.load({
       coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
       wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
@@ -342,10 +342,7 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
   try {
     return await convertToMp4(recordedBlob, onProgress);
   } catch (conversionError) {
-    // Keep the export usable when a browser blocks the WASM MP4 transcode
-    // (common on iOS/private browsing or when the CDN is unavailable).
-    console.warn('MP4 conversion unavailable; returning browser recording instead.', conversionError);
-    onProgress?.(1);
-    return recordedBlob;
+    console.error('MP4 conversion failed', conversionError);
+    throw new Error('MP4 ပြောင်းလဲမှု မအောင်မြင်ပါ။ Video ကို ပြန်တင်ပြီး Chrome/Edge browser ဖြင့် ထပ်စမ်းပါ။');
   }
 }

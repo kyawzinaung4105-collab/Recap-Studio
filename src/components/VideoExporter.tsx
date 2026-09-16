@@ -38,8 +38,7 @@ export function VideoExporter({ project, onExport }: VideoExporterProps) {
         onProgress: (p) => setProgress(Math.round(p * 100)),
       });
 
-      const extension = blob.type.includes('mp4') ? 'mp4' : 'webm';
-      const fileName = (project.movieTitle || 'recap') + `.${extension}`;
+      const fileName = (project.movieTitle || 'recap') + '.mp4';
       downloadBlob(blob, fileName);
 
       setDone(true);
@@ -151,7 +150,7 @@ export function VideoExporter({ project, onExport }: VideoExporterProps) {
       {done && (
         <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-4">
           <p className="text-sm text-emerald-300">
-            Your video has been downloaded with the Myanmar audio track and subtitles embedded. The SRT file is also available for separate download.
+            Your MP4 video has been downloaded with the Myanmar audio track and subtitles embedded. It should play in Gallery, MX Player, and other standard players. The SRT file is also available for separate download.
           </p>
         </div>
       )}
