@@ -31,6 +31,8 @@ export function VideoExporter({ project, onExport }: VideoExporterProps) {
         subtitles: project.subtitles,
         movieTitle: project.movieTitle,
         language: project.language,
+        subtitleStyle: project.subtitleStyle,
+        blurRegions: project.blurRegions,
         onProgress: (p) => setProgress(Math.round(p * 100)),
       });
 
@@ -54,6 +56,7 @@ export function VideoExporter({ project, onExport }: VideoExporterProps) {
 
   const checklist = [
     { icon: Film, label: 'Video source', value: project.videoFileName || project.linkUrl || 'Not set', done: !!(project.videoUrl || project.linkUrl) },
+    { icon: Film, label: 'Video duration', value: project.videoDuration > 0 ? `${Math.floor(project.videoDuration / 60)}:${String(Math.floor(project.videoDuration % 60)).padStart(2, '0')}` : 'Detecting on preview', done: project.videoDuration > 0 },
     { icon: Music, label: 'Audio (MP3)', value: project.audioFileName || 'Original audio', done: true },
     { icon: Subtitles, label: 'Subtitles (SRT)', value: `${project.subtitles.length} cues`, done: project.subtitles.length > 0 },
     { icon: FileText, label: 'Title', value: project.movieTitle || 'Untitled', done: !!project.movieTitle },

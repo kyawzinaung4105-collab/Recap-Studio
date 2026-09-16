@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import type { VideoProject, Step } from '@/types';
-import { emptyProject } from '@/types';
+import { defaultProject } from '@/types';
 
 interface RecapContextValue {
   project: VideoProject;
@@ -13,7 +13,7 @@ interface RecapContextValue {
 const RecapContext = createContext<RecapContextValue | null>(null);
 
 export function RecapProvider({ children }: { children: ReactNode }) {
-  const [project, setProject] = useState<VideoProject>(emptyProject);
+  const [project, setProject] = useState<VideoProject>(defaultProject);
   const [step, setStep] = useState<Step>(0);
 
   const updateProject = (patch: Partial<VideoProject>) => {
@@ -21,7 +21,7 @@ export function RecapProvider({ children }: { children: ReactNode }) {
   };
 
   const resetProject = () => {
-    setProject(emptyProject);
+    setProject(defaultProject);
     setStep(0);
   };
 

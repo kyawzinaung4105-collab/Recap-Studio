@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Film, Upload, Link2, Music, Subtitles, Settings, ArrowRight, ArrowLeft, RotateCcw, Sparkles, Type, Languages, Mic2, Eye, Download } from 'lucide-react';
+import { Film, Upload, Link2, Music, Subtitles, ArrowRight, ArrowLeft, RotateCcw, Sparkles, Type, Languages, Mic2, Eye, Download } from 'lucide-react';
 import { RecapProvider, useRecap } from '@/context/RecapContext';
 import { StepIndicator } from '@/components/StepIndicator';
 import { VideoUpload } from '@/components/VideoUpload';
@@ -12,8 +12,8 @@ import { MovieTitleEditor } from '@/components/MovieTitleEditor';
 import { CaptionEditor } from '@/components/CaptionEditor';
 import { VideoPreviewScreen } from '@/components/VideoPreviewScreen';
 import { VideoExporter } from '@/components/VideoExporter';
-import { getVoiceById } from '@/lib/voices';
-import type { Platform } from '@/types';
+import { VideoEffectsEditor } from '@/components/VideoEffectsEditor';
+import { formatDuration, type Platform } from '@/types';
 
 const STEPS = [
   { label: 'Input', icon: Film },
@@ -38,7 +38,7 @@ function AppContent() {
   };
 
   const handleVideoLoaded = (url: string, fileName: string) => {
-    updateProject({ videoUrl: url, videoFileName: fileName, mode: 'upload' });
+    updateProject({ videoUrl: url, videoFileName: fileName, videoDuration: 0, mode: 'upload' });
   };
 
   const handleAudioLoaded = (url: string, fileName: string) => {
@@ -132,6 +132,9 @@ function AppContent() {
                   </div>
                 </div>
               )}
+              {project.videoDuration > 0 && (
+                <p className="text-center text-xs text-slate-500">Detected duration: {formatDuration(project.videoDuration)}</p>
+              )}
             </div>
           )}
 
@@ -204,6 +207,13 @@ function AppContent() {
                   <CaptionEditor cues={project.subtitles} onChange={(cues) => updateProject({ subtitles: cues })} />
                 </div>
               )}
+
+              <VideoEffectsEditor
+                subtitleStyle={project.subtitleStyle}
+                blurRegions={project.blurRegions}
+                onSubtitleStyleChange={(subtitleStyle) => updateProject({ subtitleStyle })}
+                onBlurRegionsChange={(blurRegions) => updateProject({ blurRegions })}
+              />
             </div>
           )}
 
@@ -222,6 +232,9 @@ function AppContent() {
                   subtitles={project.subtitles}
                   language={project.language}
                   movieTitle={project.movieTitle}
+                  subtitleStyle={project.subtitleStyle}
+                  blurRegions={project.blurRegions}
+                  onDurationChange={(videoDuration) => updateProject({ videoDuration })}
                 />
               ) : (
                 <div className="text-center text-slate-500 py-12">No video to preview</div>

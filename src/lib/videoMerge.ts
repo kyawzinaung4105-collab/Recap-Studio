@@ -1,4 +1,4 @@
-import type { SrtCue } from '@/types';
+import { defaultSubtitleStyle, type BlurRegion, type SrtCue, type SubtitleStyle } from '@/types';
 import { getActiveCue } from '@/lib/captions';
 
 /**
@@ -10,24 +10,6 @@ export interface MergeOptions {
   subtitleStyle?: SubtitleStyle;
   videoStartTime?: number;
 }
-
-export interface SubtitleStyle {
-  font: string;
-  fontSize: number;
-  primaryColor: string;
-  outlineColor: string;
-  outlineWidth: number;
-  position: number;
-}
-
-export const defaultSubtitleStyle: SubtitleStyle = {
-  font: 'Arial',
-  fontSize: 24,
-  primaryColor: '&H00FFFFFF',
-  outlineColor: '&H00000000',
-  outlineWidth: 2,
-  position: 90,
-};
 
 /**
  * Convert SRT cues to ASS subtitle format.
@@ -49,7 +31,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,${style.font},${style.fontSize},${style.primaryColor},&H000000FF,${style.outlineColor},&H80000000,0,0,0,0,100,100,0,0,1,${style.outlineWidth},1,2,10,10,${Math.round((288 * (100 - style.position)) / 100)},1
+  Style: Default,${style.fontFamily},${style.fontSize},&H00FFFFFF,&H000000FF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,${style.outlineWidth},1,2,10,10,${Math.round((288 * (100 - style.position)) / 100)},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`;
@@ -105,6 +87,8 @@ export interface ExportOptions {
   subtitles: SrtCue[];
   movieTitle: string;
   language: 'my' | 'en';
+  subtitleStyle?: SubtitleStyle;
+  blurRegions?: BlurRegion[];
   onProgress?: (progress: number) => void;
 }
 
@@ -114,7 +98,7 @@ export interface ExportOptions {
  * Produces a downloadable .mp4 (or webm fallback) file with correct metadata.
  */
 export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
-  const { videoUrl, audioUrl, subtitles, movieTitle, onProgress } = opts;
+  const { videoUrl, audioUrl, subtitles, movieTitle, subtitleStyle = defaultSubtitleStyle, blurRegions = [], onProgress } = opts;
 
   // Set up the video element
   const video = document.createElement('video');
@@ -181,7 +165,8 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
     audioStream.getAudioTracks().forEach((t) => combinedStream.addTrack(t));
   } else if (!audioUrl) {
     try {
-      const videoStream = (video as any).captureStream?.() as MediaStream | undefined;
+      const captureVideo = video as HTMLVideoElement & { captureStream?: () => MediaStream };
+      const videoStream = captureVideo.captureStream?.();
       videoStream?.getAudioTracks().forEach((t) => combinedStream.addTrack(t));
     } catch {
       // No audio track available
@@ -232,20 +217,34 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
     // Draw video frame
     ctx.drawImage(video, 0, 0, width, height);
 
+    blurRegions.filter((region) => region.enabled).forEach((region) => {
+      const x = (region.x / 100) * width;
+      const y = (region.y / 100) * height;
+      const w = (region.width / 100) * width;
+      const h = (region.height / 100) * height;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y, w, h);
+      ctx.clip();
+      ctx.filter = 'blur(18px)';
+      ctx.drawImage(video, 0, 0, width, height);
+      ctx.restore();
+    });
+
     // Get current time
     const currentVideoTime = video.currentTime;
 
     // Draw subtitle overlay
     const activeCue = getActiveCue(subtitles, currentVideoTime);
     if (activeCue) {
-      const fontSize = Math.max(20, Math.floor(height / 28));
-      ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+      const fontSize = Math.max(20, Math.floor(height / 28) * (subtitleStyle.fontSize / 28));
+      ctx.font = `bold ${fontSize}px ${subtitleStyle.fontFamily}, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
 
       const lines = activeCue.text.split('\n');
       const lineHeight = fontSize * 1.4;
-      const baseY = height - 40 - (lines.length - 1) * lineHeight;
+      const baseY = (height * subtitleStyle.position) / 100 - (lines.length - 1) * lineHeight;
 
       // Title badge
       if (movieTitle) {
@@ -259,7 +258,7 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
       }
 
       // Subtitle background + text
-      ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+      ctx.font = `bold ${fontSize}px ${subtitleStyle.fontFamily}, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
 
@@ -267,12 +266,12 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
         const y = baseY + i * lineHeight;
         const x = width / 2;
 
-        ctx.lineWidth = Math.max(2, fontSize / 10);
-        ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+        ctx.lineWidth = subtitleStyle.outlineWidth;
+        ctx.strokeStyle = subtitleStyle.outlineColor;
         ctx.lineJoin = 'round';
         ctx.strokeText(line, x, y);
 
-        ctx.fillStyle = '#FFD700';
+        ctx.fillStyle = subtitleStyle.color;
         ctx.fillText(line, x, y);
       });
     } else if (movieTitle) {
