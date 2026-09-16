@@ -34,7 +34,7 @@ export function VideoExporter({ project, onExport }: VideoExporterProps) {
         onProgress: (p) => setProgress(Math.round(p * 100)),
       });
 
-      const fileName = (project.movieTitle || 'recap') + '.webm';
+      const fileName = (project.movieTitle || 'recap') + '.mp4';
       downloadBlob(blob, fileName);
 
       setDone(true);
@@ -145,7 +145,7 @@ export function VideoExporter({ project, onExport }: VideoExporterProps) {
       {done && (
         <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-4">
           <p className="text-sm text-emerald-300">
-            Your video has been downloaded as a .webm file with the Myanmar audio track and subtitles embedded. The SRT file is also available for separate download.
+            Your video has been downloaded as a .mp4 file with the Myanmar audio track and subtitles embedded. The SRT file is also available for separate download.
           </p>
         </div>
       )}
