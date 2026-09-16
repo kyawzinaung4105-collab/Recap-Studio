@@ -255,15 +255,18 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
     };
   });
 
-  // Start playing and recording
+  // Start recording before playback so the first video frames and audio samples
+  // are not lost. Starting playback first can create gaps after FFmpeg muxing.
   video.currentTime = 0;
-  await video.play();
   recorder.start(100);
+  await video.play();
 
   // Render loop: draw video frame + subtitle overlay
+  let renderHandle = 0;
   const renderFrame = () => {
     if (video.ended || video.paused) {
       if (video.ended) {
+        cancelAnimationFrame(renderHandle);
         recorder.stop();
         if (audioCtx) audioCtx.close();
         return;
@@ -346,16 +349,17 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
       onProgress(Math.min(0.95, Math.max(0, renderProgress)));
     }
 
-    requestAnimationFrame(renderFrame);
+    renderHandle = requestAnimationFrame(renderFrame);
   };
 
-  renderFrame();
+  renderHandle = requestAnimationFrame(renderFrame);
 
   // Safety timeout: stop after duration + 5 seconds
   const maxDuration = (video.duration + 5) * 1000;
   setTimeout(() => {
     if (recorder.state !== 'inactive') {
       recorder.stop();
+      cancelAnimationFrame(renderHandle);
       if (audioCtx) audioCtx.close();
     }
   }, maxDuration);
