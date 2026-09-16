@@ -236,6 +236,7 @@ function AppContent() {
                     subtitleStyle={project.subtitleStyle}
                     blurRegions={project.blurRegions}
                     onDurationChange={(videoDuration) => updateProject({ videoDuration })}
+                    onBlurRegionsChange={(blurRegions) => updateProject({ blurRegions })}
                   />
                   <VideoEffectsEditor
                     subtitleStyle={project.subtitleStyle}
