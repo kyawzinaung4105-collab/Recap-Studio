@@ -210,8 +210,12 @@ function AppContent() {
 
               <VideoEffectsEditor
                 subtitleStyle={project.subtitleStyle}
+                blurEnabled={project.blurEnabled}
+                blurStrength={project.blurStrength}
                 blurRegions={project.blurRegions}
                 onSubtitleStyleChange={(subtitleStyle) => updateProject({ subtitleStyle })}
+                onBlurEnabledChange={(blurEnabled) => updateProject({ blurEnabled })}
+                onBlurStrengthChange={(blurStrength) => updateProject({ blurStrength })}
                 onBlurRegionsChange={(blurRegions) => updateProject({ blurRegions })}
               />
             </div>
@@ -235,13 +239,19 @@ function AppContent() {
                     movieTitle={project.movieTitle}
                     subtitleStyle={project.subtitleStyle}
                     blurRegions={project.blurRegions}
+                    blurEnabled={project.blurEnabled}
+                    blurStrength={project.blurStrength}
                     onDurationChange={(videoDuration) => updateProject({ videoDuration })}
                     onBlurRegionsChange={(blurRegions) => updateProject({ blurRegions })}
                   />
                   <VideoEffectsEditor
                     subtitleStyle={project.subtitleStyle}
+                    blurEnabled={project.blurEnabled}
+                    blurStrength={project.blurStrength}
                     blurRegions={project.blurRegions}
                     onSubtitleStyleChange={(subtitleStyle) => updateProject({ subtitleStyle })}
+                    onBlurEnabledChange={(blurEnabled) => updateProject({ blurEnabled })}
+                    onBlurStrengthChange={(blurStrength) => updateProject({ blurStrength })}
                     onBlurRegionsChange={(blurRegions) => updateProject({ blurRegions })}
                   />
                 </>

@@ -12,14 +12,16 @@ interface VideoPreviewScreenProps {
   movieTitle: string;
   subtitleStyle: SubtitleStyle;
   blurRegions: BlurRegion[];
+  blurEnabled: boolean;
+  blurStrength: number;
   onBlurRegionsChange?: (regions: BlurRegion[]) => void;
   onDurationChange?: (duration: number) => void;
 }
 
-export function VideoPreviewScreen({ videoUrl, audioUrl, subtitles, language, movieTitle, subtitleStyle, blurRegions, onDurationChange, onBlurRegionsChange }: VideoPreviewScreenProps) {
+export function VideoPreviewScreen({ videoUrl, audioUrl, subtitles, language, movieTitle, subtitleStyle, blurRegions, blurEnabled, blurStrength, onDurationChange, onBlurRegionsChange }: VideoPreviewScreenProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const dragRef = useRef<{ id: string; offsetX: number; offsetY: number; resize: boolean } | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -42,12 +44,12 @@ export function VideoPreviewScreen({ videoUrl, audioUrl, subtitles, language, mo
   const togglePlay = () => { const video = videoRef.current; if (!video) return; if (video.paused) video.play().catch(() => {}); else video.pause(); };
   const toggleMute = () => { const target = audioUrl ? audioRef.current : videoRef.current; if (!target) return; target.muted = !target.muted; setMuted(target.muted); };
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
-  const startBlurDrag = (event: ReactPointerEvent<HTMLDivElement>, region: BlurRegion) => {
+  const startBlurDrag = (event: ReactPointerEvent<HTMLElement>, region: BlurRegion) => {
     if (!onBlurRegionsChange || !previewRef.current) return;
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
     const rect = previewRef.current.getBoundingClientRect();
-    dragRef.current = { id: region.id, offsetX: (event.clientX - rect.left) / rect.width * 100 - region.x, offsetY: (event.clientY - rect.top) / rect.height * 100 - region.y };
+    dragRef.current = { id: region.id, offsetX: (event.clientX - rect.left) / rect.width * 100 - region.x, offsetY: (event.clientY - rect.top) / rect.height * 100 - region.y, resize: event.currentTarget.dataset.resize === 'true' };
   };
   const moveBlur = (event: ReactPointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
@@ -55,9 +57,15 @@ export function VideoPreviewScreen({ videoUrl, audioUrl, subtitles, language, mo
     const rect = previewRef.current.getBoundingClientRect();
     const region = blurRegions.find((item) => item.id === drag.id);
     if (!region) return;
-    const x = Math.min(100 - region.width, Math.max(0, (event.clientX - rect.left) / rect.width * 100 - drag.offsetX));
-    const y = Math.min(100 - region.height, Math.max(0, (event.clientY - rect.top) / rect.height * 100 - drag.offsetY));
-    onBlurRegionsChange(blurRegions.map((item) => item.id === drag.id ? { ...item, x, y } : item));
+    if (drag.resize) {
+      const width = Math.min(100 - region.x, Math.max(8, (event.clientX - rect.left) / rect.width * 100 - region.x));
+      const height = Math.min(100 - region.y, Math.max(8, (event.clientY - rect.top) / rect.height * 100 - region.y));
+      onBlurRegionsChange(blurRegions.map((item) => item.id === drag.id ? { ...item, width, height } : item));
+    } else {
+      const x = Math.min(100 - region.width, Math.max(0, (event.clientX - rect.left) / rect.width * 100 - drag.offsetX));
+      const y = Math.min(100 - region.height, Math.max(0, (event.clientY - rect.top) / rect.height * 100 - drag.offsetY));
+      onBlurRegionsChange(blurRegions.map((item) => item.id === drag.id ? { ...item, x, y } : item));
+    }
   };
   const stopBlurDrag = () => { dragRef.current = null; };
 
@@ -65,7 +73,7 @@ export function VideoPreviewScreen({ videoUrl, audioUrl, subtitles, language, mo
     <div ref={previewRef} onPointerMove={moveBlur} onPointerUp={stopBlurDrag} onPointerCancel={stopBlurDrag} className="relative overflow-hidden rounded-2xl bg-black shadow-2xl group">
       <video ref={videoRef} src={videoUrl} className="aspect-video w-full object-contain" playsInline preload="metadata" />
       {audioUrl && <audio ref={audioRef} src={audioUrl} crossOrigin="anonymous" />}
-      {blurRegions.filter((region) => region.enabled).map((region) => <div key={region.id} onPointerDown={(event) => startBlurDrag(event, region)} className="absolute cursor-move touch-none rounded-md border border-violet-300/70 bg-violet-400/10 backdrop-blur-xl" style={{ left: `${region.x}%`, top: `${region.y}%`, width: `${region.width}%`, height: `${region.height}%` }} title="Drag to move blur area" />)}
+      {blurEnabled && blurRegions.filter((region) => region.enabled).map((region) => <div key={region.id} onPointerDown={(event) => startBlurDrag(event, region)} className="absolute cursor-move touch-none rounded-md border-2 border-emerald-300 bg-emerald-400/10" style={{ left: `${region.x}%`, top: `${region.y}%`, width: `${region.width}%`, height: `${region.height}%`, backdropFilter: `blur(${Math.max(2, blurStrength / 4)}px)` }} title="Drag to move blur area"><span className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-xl text-white">✥</span><button type="button" data-resize="true" onPointerDown={(event) => startBlurDrag(event, region)} className="absolute -bottom-2 -right-2 h-5 w-5 cursor-se-resize rounded bg-emerald-300 shadow" aria-label="Resize blur area" /></div>)}
       {activeCue && <div className="absolute left-1/2 max-w-[88%] -translate-x-1/2 rounded-lg bg-black/70 px-4 py-2 backdrop-blur-sm" style={{ bottom: `${100 - subtitleStyle.position}%` }}><p className="text-center font-semibold leading-snug drop-shadow-lg" style={{ color: subtitleStyle.color, fontFamily: subtitleStyle.fontFamily, fontSize: `${Math.max(12, subtitleStyle.fontSize / 1.5)}px`, textShadow: `0 0 ${subtitleStyle.outlineWidth}px ${subtitleStyle.outlineColor}` }}>{activeCue.text}</p></div>}
       {movieTitle && <div className="absolute left-4 top-4 rounded-lg bg-black/60 px-3 py-1.5 backdrop-blur-sm"><p className="text-sm font-semibold text-amber-400">{movieTitle}</p></div>}
       {!playing && <button onClick={togglePlay} aria-label="Play video" className="absolute inset-0 flex items-center justify-center bg-black/30 transition-all hover:bg-black/20"><div className="rounded-full bg-amber-500/90 p-6 transition-transform group-hover:scale-110"><Play className="ml-1 h-10 w-10 text-slate-900" fill="currentColor" /></div></button>}
@@ -76,6 +84,6 @@ export function VideoPreviewScreen({ videoUrl, audioUrl, subtitles, language, mo
       <span className="whitespace-nowrap text-xs font-mono tabular-nums text-slate-300">{formatDuration(currentTime)} / {formatDuration(duration)}</span>
       <button onClick={toggleMute} aria-label={muted ? 'Unmute video' : 'Mute video'} className="rounded-full bg-slate-800 p-2.5 text-slate-300 hover:bg-slate-700">{muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}</button>
     </div>
-    <div className="flex flex-wrap gap-x-4 gap-y-1 px-2 text-xs text-slate-500"><span>{formatDuration(duration)} total</span><span>{subtitles.length} subtitles</span><span>{language === 'my' ? 'မြန်မာ subtitle' : 'English subtitles'}</span>{audioUrl && <span className="text-emerald-400">Custom audio enabled</span>}{blurRegions.some((region) => region.enabled) && <span className="text-violet-300">Blur enabled</span>}</div>
+    <div className="flex flex-wrap gap-x-4 gap-y-1 px-2 text-xs text-slate-500"><span>{formatDuration(duration)} total</span><span>{subtitles.length} subtitles</span><span>{language === 'my' ? 'မြန်မာ subtitle' : 'English subtitles'}</span>{audioUrl && <span className="text-emerald-400">Custom audio enabled</span>}{blurEnabled && blurRegions.some((region) => region.enabled) && <span className="text-emerald-300">Blur enabled · {blurStrength}%</span>}</div>
   </div>;
 }

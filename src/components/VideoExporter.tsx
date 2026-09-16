@@ -33,6 +33,8 @@ export function VideoExporter({ project, onExport }: VideoExporterProps) {
         language: project.language,
         subtitleStyle: project.subtitleStyle,
         blurRegions: project.blurRegions,
+        blurEnabled: project.blurEnabled,
+        blurStrength: project.blurStrength,
         onProgress: (p) => setProgress(Math.round(p * 100)),
       });
 

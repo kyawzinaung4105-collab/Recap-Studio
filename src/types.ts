@@ -39,6 +39,8 @@ export interface VideoProject {
   subtitles: SrtCue[];
   subtitleFileName: string;
   subtitleStyle: SubtitleStyle;
+  blurEnabled: boolean;
+  blurStrength: number;
   blurRegions: BlurRegion[];
   movieTitle: string;
   language: 'my' | 'en';
@@ -67,6 +69,8 @@ export const emptyProject: VideoProject = {
   subtitles: [],
   subtitleFileName: '',
   subtitleStyle: defaultSubtitleStyle,
+  blurEnabled: false,
+  blurStrength: 50,
   blurRegions: [],
   movieTitle: '',
   language: 'my',

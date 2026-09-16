@@ -115,6 +115,8 @@ export interface ExportOptions {
   language: 'my' | 'en';
   subtitleStyle?: SubtitleStyle;
   blurRegions?: BlurRegion[];
+  blurEnabled?: boolean;
+  blurStrength?: number;
   onProgress?: (progress: number) => void;
 }
 
@@ -124,7 +126,7 @@ export interface ExportOptions {
  * Produces a downloadable .mp4 (or webm fallback) file with correct metadata.
  */
 export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
-  const { videoUrl, audioUrl, subtitles, movieTitle, subtitleStyle = defaultSubtitleStyle, blurRegions = [], onProgress } = opts;
+  const { videoUrl, audioUrl, subtitles, movieTitle, subtitleStyle = defaultSubtitleStyle, blurRegions = [], blurEnabled = true, blurStrength = 50, onProgress } = opts;
 
   // Set up the video element
   const video = document.createElement('video');
@@ -243,7 +245,7 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
     // Draw video frame
     ctx.drawImage(video, 0, 0, width, height);
 
-    blurRegions.filter((region) => region.enabled).forEach((region) => {
+    blurEnabled && blurRegions.filter((region) => region.enabled).forEach((region) => {
       const x = (region.x / 100) * width;
       const y = (region.y / 100) * height;
       const w = (region.width / 100) * width;
@@ -252,7 +254,7 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
       ctx.beginPath();
       ctx.rect(x, y, w, h);
       ctx.clip();
-      ctx.filter = 'blur(18px)';
+      ctx.filter = `blur(${Math.max(2, blurStrength / 4)}px)`;
       ctx.drawImage(video, 0, 0, width, height);
       ctx.restore();
     });
