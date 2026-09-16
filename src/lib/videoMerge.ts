@@ -341,8 +341,9 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
     }
 
     // Update progress
-    if (onProgress && video.duration > 0) {
-      onProgress(video.currentTime / video.duration);
+    if (onProgress && Number.isFinite(video.duration) && video.duration > 0) {
+      const renderProgress = video.currentTime / video.duration;
+      onProgress(Math.min(0.95, Math.max(0, renderProgress)));
     }
 
     requestAnimationFrame(renderFrame);

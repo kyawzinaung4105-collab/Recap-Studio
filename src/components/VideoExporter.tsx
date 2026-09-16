@@ -35,7 +35,10 @@ export function VideoExporter({ project, onExport }: VideoExporterProps) {
         blurRegions: project.blurRegions,
         blurEnabled: project.blurEnabled,
         blurStrength: project.blurStrength,
-        onProgress: (p) => setProgress(Math.round(p * 100)),
+        onProgress: (p) => {
+          const safeProgress = Number.isFinite(p) ? Math.min(1, Math.max(0, p)) : 0;
+          setProgress(Math.round(safeProgress * 100));
+        },
       });
 
       const fileName = (project.movieTitle || 'recap') + '.mp4';
