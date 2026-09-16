@@ -226,16 +226,24 @@ function AppContent() {
               </div>
 
               {(project.videoUrl || project.linkUrl) ? (
-                <VideoPreviewScreen
-                  videoUrl={project.videoUrl || ''}
-                  audioUrl={project.audioUrl}
-                  subtitles={project.subtitles}
-                  language={project.language}
-                  movieTitle={project.movieTitle}
-                  subtitleStyle={project.subtitleStyle}
-                  blurRegions={project.blurRegions}
-                  onDurationChange={(videoDuration) => updateProject({ videoDuration })}
-                />
+                <>
+                  <VideoPreviewScreen
+                    videoUrl={project.videoUrl || ''}
+                    audioUrl={project.audioUrl}
+                    subtitles={project.subtitles}
+                    language={project.language}
+                    movieTitle={project.movieTitle}
+                    subtitleStyle={project.subtitleStyle}
+                    blurRegions={project.blurRegions}
+                    onDurationChange={(videoDuration) => updateProject({ videoDuration })}
+                  />
+                  <VideoEffectsEditor
+                    subtitleStyle={project.subtitleStyle}
+                    blurRegions={project.blurRegions}
+                    onSubtitleStyleChange={(subtitleStyle) => updateProject({ subtitleStyle })}
+                    onBlurRegionsChange={(blurRegions) => updateProject({ blurRegions })}
+                  />
+                </>
               ) : (
                 <div className="text-center text-slate-500 py-12">No video to preview</div>
               )}
