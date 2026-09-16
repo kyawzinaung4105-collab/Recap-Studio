@@ -213,6 +213,10 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
     ? 'video/webm;codecs=vp8,opus'
     : 'video/webm';
 
+  if (typeof MediaRecorder === 'undefined') {
+    throw new Error('ဒီ browser က video export ကို မထောက်ပံ့ပါ။ Chrome, Edge သို့မဟုတ် Safari အသစ်ကို အသုံးပြုပါ။');
+  }
+
   const recorder = new MediaRecorder(combinedStream, {
     mimeType,
     videoBitsPerSecond: 5_000_000,
@@ -335,5 +339,13 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
   }, maxDuration);
 
   const recordedBlob = await done;
-  return convertToMp4(recordedBlob, onProgress);
+  try {
+    return await convertToMp4(recordedBlob, onProgress);
+  } catch (conversionError) {
+    // Keep the export usable when a browser blocks the WASM MP4 transcode
+    // (common on iOS/private browsing or when the CDN is unavailable).
+    console.warn('MP4 conversion unavailable; returning browser recording instead.', conversionError);
+    onProgress?.(1);
+    return recordedBlob;
+  }
 }
