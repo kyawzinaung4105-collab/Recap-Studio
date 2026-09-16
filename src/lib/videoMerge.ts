@@ -1,5 +1,31 @@
 import { defaultSubtitleStyle, type BlurRegion, type SrtCue, type SubtitleStyle } from '@/types';
 import { getActiveCue } from '@/lib/captions';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
+
+let ffmpeg: FFmpeg | null = null;
+
+async function convertToMp4(recordedBlob: Blob, onProgress?: (progress: number) => void): Promise<Blob> {
+  if (recordedBlob.type.includes('mp4')) return recordedBlob;
+
+  if (!ffmpeg) {
+    ffmpeg = new FFmpeg();
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd';
+    await ffmpeg.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+    });
+  }
+
+  onProgress?.(0.97);
+  await ffmpeg.writeFile('recap-input.webm', await fetchFile(recordedBlob));
+  await ffmpeg.exec(['-i', 'recap-input.webm', '-c:v', 'libx264', '-preset', 'veryfast', '-c:a', 'aac', '-movflags', '+faststart', 'recap-output.mp4']);
+  const output = await ffmpeg.readFile('recap-output.mp4');
+  await ffmpeg.deleteFile('recap-input.webm');
+  await ffmpeg.deleteFile('recap-output.mp4');
+  onProgress?.(1);
+  return new Blob([output], { type: 'video/mp4' });
+}
 
 /**
  * Options for creating a merged video with audio and burned-in subtitles.
@@ -303,5 +329,6 @@ export async function exportMergedVideo(opts: ExportOptions): Promise<Blob> {
     }
   }, maxDuration);
 
-  return done;
+  const recordedBlob = await done;
+  return convertToMp4(recordedBlob, onProgress);
 }
