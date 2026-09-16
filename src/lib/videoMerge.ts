@@ -5,9 +5,7 @@ import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 let ffmpeg: FFmpeg | null = null;
 
-async function convertToMp4(recordedBlob: Blob, onProgress?: (progress: number) => void): Promise<Blob> {
-  if (recordedBlob.type.includes('mp4')) return recordedBlob;
-
+async function getFfmpeg(): Promise<FFmpeg> {
   if (!ffmpeg) {
     ffmpeg = new FFmpeg();
     const baseURL = '/ffmpeg';
@@ -16,16 +14,36 @@ async function convertToMp4(recordedBlob: Blob, onProgress?: (progress: number) 
       wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
     });
   }
+  return ffmpeg;
+}
+
+/** Normalize uploads so mobile browsers can preview H.264/AAC MP4 reliably. */
+export async function normalizeVideoForPreview(file: File): Promise<Blob> {
+  const engine = await getFfmpeg();
+  const inputName = `upload-${Date.now()}.${file.name.split('.').pop() || 'video'}`;
+  const outputName = `preview-${Date.now()}.mp4`;
+  await engine.writeFile(inputName, await fetchFile(file));
+  await engine.exec(['-i', inputName, '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', outputName]);
+  const output = await engine.readFile(outputName);
+  await engine.deleteFile(inputName);
+  await engine.deleteFile(outputName);
+  return new Blob([output], { type: 'video/mp4' });
+}
+
+async function convertToMp4(recordedBlob: Blob, onProgress?: (progress: number) => void): Promise<Blob> {
+  if (recordedBlob.type.includes('mp4')) return recordedBlob;
+
+  const engine = await getFfmpeg();
 
   const progressHandler = ({ progress }: { progress: number }) => onProgress?.(0.96 + Math.min(1, progress) * 0.04);
-  ffmpeg.on('progress', progressHandler);
+  engine.on('progress', progressHandler);
   onProgress?.(0.96);
-  await ffmpeg.writeFile('recap-input.webm', await fetchFile(recordedBlob));
-  await ffmpeg.exec(['-i', 'recap-input.webm', '-c:v', 'libx264', '-preset', 'veryfast', '-c:a', 'aac', '-movflags', '+faststart', 'recap-output.mp4']);
-  const output = await ffmpeg.readFile('recap-output.mp4');
-  await ffmpeg.deleteFile('recap-input.webm');
-  await ffmpeg.deleteFile('recap-output.mp4');
-  ffmpeg.off('progress', progressHandler);
+  await engine.writeFile('recap-input.webm', await fetchFile(recordedBlob));
+  await engine.exec(['-i', 'recap-input.webm', '-c:v', 'libx264', '-preset', 'veryfast', '-c:a', 'aac', '-movflags', '+faststart', 'recap-output.mp4']);
+  const output = await engine.readFile('recap-output.mp4');
+  await engine.deleteFile('recap-input.webm');
+  await engine.deleteFile('recap-output.mp4');
+  engine.off('progress', progressHandler);
   onProgress?.(1);
   return new Blob([output], { type: 'video/mp4' });
 }
