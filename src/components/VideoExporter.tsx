@@ -39,7 +39,8 @@ export function VideoExporter({ project, onExport }: VideoExporterProps) {
         })], { type: 'application/json' });
         form.append('options', options, 'options.json');
         setProgress(15);
-        const response = await fetch('/api/export', { method: 'POST', body: form });
+        const exportEndpoint = import.meta.env.VITE_EXPORT_API_URL || '/api/export';
+        const response = await fetch(import.meta.env.VITE_EXPORT_API_URL ? `${exportEndpoint.replace(/\/$/, '')}/export` : exportEndpoint, { method: 'POST', body: form });
         setProgress(80);
         if (!response.ok) {
           const body = await response.json().catch(() => ({})) as { error?: string };
