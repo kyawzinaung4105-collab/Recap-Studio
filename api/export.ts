@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { spawn } from 'node:child_process';
-import { createReadStream, createWriteStream, promises as fs } from 'node:fs';
+import { createReadStream, promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -37,6 +37,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     const audio = first(files.audio as Upload | Upload[] | undefined);
     const options = first(files.options as Upload | Upload[] | undefined);
     if (!video || !options) throw new Error('Video and export options are required.');
+    
     const settings = JSON.parse(await fs.readFile(options.filepath, 'utf8')) as {
       subtitles?: { startTime: number; endTime: number; text: string }[];
       subtitleStyle?: { fontFamily: string; fontSize: number; color: string; outlineWidth: number; position: number };
@@ -44,30 +45,69 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       blurEnabled?: boolean;
       blurStrength?: number;
     };
+
     const output = join(dir, 'recap-final.mp4');
     const input = video.filepath;
     const args = ['-y', '-i', input];
     if (audio) args.push('-i', audio.filepath);
+
     const filters: string[] = [];
+    
+    // Fixed Blur Region Filter Logic (Proper overlay/crop isolation)
     const regions = settings.blurEnabled ? (settings.blurRegions || []).filter((r) => r.enabled) : [];
     if (regions.length) {
       const r = regions[0];
       const strength = Math.max(2, Math.round((settings.blurStrength || 50) / 4));
-      filters.push(`boxblur=${strength}:1, crop=iw*${r.width / 100}:ih*${r.height / 100}:iw*${r.x / 100}:ih*${r.y / 100}`);
+      // Safely apply blur to the specific region without breaking the rest of the frame
+      filters.push(`[0:v]split=2[main][to_blur];[to_blur]crop=iw*${r.width / 100}:ih*${r.height / 100}:iw*${r.x / 100}:ih*${r.y / 100},boxblur=${strength}:1[blurred];[main][blurred]overlay=W*${r.x / 100}:H*${r.y / 100}[v_blurred]`);
     }
+
     const style = settings.subtitleStyle;
+    const videoInputRef = regions.length ? '[v_blurred]' : '[0:v]';
+    
     if (style && settings.subtitles?.length) {
       const font = style.fontFamily.replace(/[^a-zA-Z0-9 ]/g, '');
-      const text = settings.subtitles.map((cue) => {
-        const escaped = cue.text.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/'/g, "\\'").replace(/\n/g, '\\n');
-        return `drawtext=text='${escaped}':font='${font}':fontsize=${Math.max(14, style.fontSize)}:fontcolor=${style.color}:borderw=${style.outlineWidth}:bordercolor=black:x=(w-text_w)/2:y=h*${style.position / 100}:enable='between(t,${cue.startTime},${cue.endTime})'`;
+      const textFilters = settings.subtitles.map((cue, index) => {
+        // Robust escaping for special characters and unicode/Burmese text
+        const escaped = cue.text
+          .replace(/\\/g, '\\\\')
+          .replace(/'/g, '\\u0027')
+          .replace(/:/g, '\\:')
+          .replace(/,/g, '\\,');
+        
+        const label = index === settings.subtitles!.length - 1 ? '[v_out]' : `[v_sub${index}]`;
+        const prevRef = index === 0 ? videoInputRef : `[v_sub${index - 1}]`;
+
+        return `${prevRef}drawtext=text='${escaped}':fontcolor=${style.color}:fontsize=${Math.max(14, style.fontSize)}:borderw=${style.outlineWidth}:bordercolor=black:x=(w-text_w)/2:y=h*${style.position / 100}:enable='between(t,${cue.startTime},${cue.endTime})'${label}`;
       });
-      filters.push(...text);
+
+      filters.push(...textFilters);
+      args.push('-filter_complex', filters.join(';'));
+      args.push('-map', '[v_out]');
+    } else if (regions.length) {
+      filters.push(`${videoInputRef}copy[v_out]`);
+      args.push('-filter_complex', filters.join(';'));
+      args.push('-map', '[v_out]');
+    } else {
+      args.push('-map', '0:v:0');
     }
-    if (filters.length) args.push('-vf', filters.join(','));
-    if (audio) args.push('-map', '0:v:0', '-map', '1:a:0', '-shortest');
-    else args.push('-map', '0:v:0', '-map', '0:a:0?');
-    args.push('-c:v', 'libx264', '-preset', 'medium', '-pix_fmt', 'yuv420p', '-r', '30', '-vsync', 'cfr', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', output);
+
+    if (audio) args.push('-map', '1:a:0', '-shortest');
+    else args.push('-map', '0:a:0?');
+
+    // Universal compatibility settings requested by user
+    args.push(
+      '-c:v', 'libx264',
+      '-preset', 'medium',
+      '-pix_fmt', 'yuv420p',
+      '-r', '30',
+      '-vsync', 'cfr',
+      '-c:a', 'aac',
+      '-b:a', '192k',
+      '-movflags', '+faststart',
+      output
+    );
+
     await runFfmpeg(args);
     const stat = await fs.stat(output);
     res.statusCode = 200;
