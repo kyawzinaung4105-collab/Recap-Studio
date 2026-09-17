@@ -3,7 +3,7 @@ import { UploadCloud, Film, Loader2, AlertCircle } from 'lucide-react';
 import { normalizeVideoForPreview } from '@/lib/videoMerge';
 
 interface VideoUploadProps {
-  onVideoLoaded: (url: string, fileName: string) => void;
+  onVideoLoaded: (url: string, fileName: string, sourceFile?: File) => void;
   currentFileName?: string;
 }
 
@@ -20,7 +20,7 @@ export function VideoUpload({ onVideoLoaded, currentFileName }: VideoUploadProps
     setError('');
     try {
       const normalized = await normalizeVideoForPreview(file);
-      onVideoLoaded(URL.createObjectURL(normalized), file.name);
+      onVideoLoaded(URL.createObjectURL(normalized), file.name, file);
     } catch (conversionError) {
       console.error('Video normalization failed', conversionError);
       setError('ဒီ video ကို Preview အတွက် ပြောင်းလဲမရပါ။ MP4 (H.264/AAC) ဖိုင်ကို ပြန်တင်ကြည့်ပါ။');

@@ -37,12 +37,12 @@ function AppContent() {
     updateProject({ linkUrl: url, platform, mode: 'link' });
   };
 
-  const handleVideoLoaded = (url: string, fileName: string) => {
-    updateProject({ videoUrl: url, videoFileName: fileName, videoDuration: 0, mode: 'upload' });
+  const handleVideoLoaded = (url: string, fileName: string, sourceFile?: File) => {
+    updateProject({ videoUrl: url, videoFileName: fileName, videoSourceFile: sourceFile, videoDuration: 0, mode: 'upload' });
   };
 
-  const handleAudioLoaded = (url: string, fileName: string) => {
-    updateProject({ audioUrl: url, audioFileName: fileName });
+  const handleAudioLoaded = (url: string, fileName: string, sourceFile?: File) => {
+    updateProject({ audioUrl: url, audioFileName: fileName, audioSourceFile: sourceFile });
   };
 
   const handleSubtitlesLoaded = (cues: typeof project.subtitles, fileName: string) => {

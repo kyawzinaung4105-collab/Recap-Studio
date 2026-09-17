@@ -25,6 +25,33 @@ export function VideoExporter({ project, onExport }: VideoExporterProps) {
     setProgress(0);
 
     try {
+      if (project.videoSourceFile) {
+        setProgress(5);
+        const form = new FormData();
+        form.append('video', project.videoSourceFile);
+        if (project.audioSourceFile) form.append('audio', project.audioSourceFile);
+        const options = new Blob([JSON.stringify({
+          subtitles: project.subtitles,
+          subtitleStyle: project.subtitleStyle,
+          blurRegions: project.blurRegions,
+          blurEnabled: project.blurEnabled,
+          blurStrength: project.blurStrength,
+        })], { type: 'application/json' });
+        form.append('options', options, 'options.json');
+        setProgress(15);
+        const response = await fetch('/api/export', { method: 'POST', body: form });
+        setProgress(80);
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({})) as { error?: string };
+          throw new Error(body.error || 'Server export failed');
+        }
+        const blob = await response.blob();
+        setProgress(100);
+        downloadBlob(blob, `${project.movieTitle || 'recap'}.mp4`);
+        setDone(true);
+        onExport?.();
+        return;
+      }
       const blob = await exportMergedVideo({
         videoUrl: project.videoUrl,
         audioUrl: project.audioUrl,

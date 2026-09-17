@@ -31,11 +31,13 @@ export interface VideoProject {
   mode: InputMode;
   videoUrl: string | null;
   videoFileName: string;
+  videoSourceFile?: File;
   videoDuration: number;
   platform: Platform;
   linkUrl: string;
   audioUrl: string | null;
   audioFileName: string;
+  audioSourceFile?: File;
   subtitles: SrtCue[];
   subtitleFileName: string;
   subtitleStyle: SubtitleStyle;

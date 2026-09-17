@@ -2,7 +2,7 @@ import { useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import { Music, UploadCloud, Loader2, X } from 'lucide-react';
 
 interface CustomAudioUploadProps {
-  onAudioLoaded: (url: string, fileName: string) => void;
+  onAudioLoaded: (url: string, fileName: string, sourceFile?: File) => void;
   currentFileName?: string;
   onClear?: () => void;
 }
@@ -16,7 +16,7 @@ export function CustomAudioUpload({ onAudioLoaded, currentFileName, onClear }: C
     if (!file.type.startsWith('audio/')) return;
     setLoading(true);
     const url = URL.createObjectURL(file);
-    onAudioLoaded(url, file.name);
+    onAudioLoaded(url, file.name, file);
     setLoading(false);
   };
 
