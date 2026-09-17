@@ -26,6 +26,22 @@ function runFfmpeg(args: string[]): Promise<void> {
   });
 }
 
+// Helper to convert subtitle JSON to standard SRT format file
+function generateSrtFile(subtitles: { startTime: number; endTime: number; text: string }[]): string {
+  let srtContent = '';
+  subtitles.forEach((cue, index) => {
+    const formatTime = (seconds: number) => {
+      const hrs = Math.floor(seconds / 3600).toString().padStart(2, '0');
+      const mins = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+      const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
+      const millis = Math.floor((seconds % 1) * 1000).toString().padStart(3, '0');
+      return `${hrs}:${mins}:${secs},${millis}`;
+    };
+    srtContent += `${index + 1}\n${formatTime(cue.startTime)} --> ${formatTime(cue.endTime)}\n${cue.text}\n\n`;
+  });
+  return srtContent;
+}
+
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   if (req.method !== 'POST') { res.statusCode = 405; res.setHeader('Allow', 'POST'); res.end('Method Not Allowed'); return; }
   const dir = join(tmpdir(), `recap-${randomUUID()}`);
@@ -52,42 +68,40 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     if (audio) args.push('-i', audio.filepath);
 
     const filters: string[] = [];
-    
-    // Fixed Blur Region Filter Logic (Proper overlay/crop isolation)
+
+    // Optional Blur Filter
     const regions = settings.blurEnabled ? (settings.blurRegions || []).filter((r) => r.enabled) : [];
     if (regions.length) {
       const r = regions[0];
       const strength = Math.max(2, Math.round((settings.blurStrength || 50) / 4));
-      // Safely apply blur to the specific region without breaking the rest of the frame
       filters.push(`[0:v]split=2[main][to_blur];[to_blur]crop=iw*${r.width / 100}:ih*${r.height / 100}:iw*${r.x / 100}:ih*${r.y / 100},boxblur=${strength}:1[blurred];[main][blurred]overlay=W*${r.x / 100}:H*${r.y / 100}[v_blurred]`);
     }
 
-    const style = settings.subtitleStyle;
-    const videoInputRef = regions.length ? '[v_blurred]' : '[0:v]';
-    
-    if (style && settings.subtitles?.length) {
-      const font = style.fontFamily.replace(/[^a-zA-Z0-9 ]/g, '');
-      const textFilters = settings.subtitles.map((cue, index) => {
-        // Robust escaping for special characters and unicode/Burmese text
-        const escaped = cue.text
-          .replace(/\\/g, '\\\\')
-          .replace(/'/g, '\\u0027')
-          .replace(/:/g, '\\:')
-          .replace(/,/g, '\\,');
-        
-        const label = index === settings.subtitles!.length - 1 ? '[v_out]' : `[v_sub${index}]`;
-        const prevRef = index === 0 ? videoInputRef : `[v_sub${index - 1}]`;
+    let videoStreamRef = regions.length ? '[v_blurred]' : '0:v';
 
-        return `${prevRef}drawtext=text='${escaped}':fontcolor=${style.color}:fontsize=${Math.max(14, style.fontSize)}:borderw=${style.outlineWidth}:bordercolor=black:x=(w-text_w)/2:y=h*${style.position / 100}:enable='between(t,${cue.startTime},${cue.endTime})'${label}`;
-      });
+    // Handle Subtitles via standard SRT filter to prevent escaping/crash issues
+    if (settings.subtitles && settings.subtitles.length > 0) {
+      const srtString = generateSrtFile(settings.subtitles);
+      const srtPath = join(dir, 'subs.srt');
+      await fs.writeFile(srtPath, srtString, 'utf8');
 
-      filters.push(...textFilters);
+      // Add SRT file as input stream
+      args.push('-i', srtPath);
+      const srtInputIndex = audio ? 2 : 1; // index of srt input
+
+      // Use subtitles filter with safe path formatting for FFmpeg
+      const escapedSrtPath = srtPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+      if (regions.length) {
+        filters.push(`[v_blurred]subtitles='${escapedSrtPath}'[v_out]`);
+      } else {
+        filters.push(`[0:v]subtitles='${escapedSrtPath}'[v_out]`);
+      }
+      videoStreamRef = '[v_out]';
+    }
+
+    if (filters.length > 0) {
       args.push('-filter_complex', filters.join(';'));
-      args.push('-map', '[v_out]');
-    } else if (regions.length) {
-      filters.push(`${videoInputRef}copy[v_out]`);
-      args.push('-filter_complex', filters.join(';'));
-      args.push('-map', '[v_out]');
+      args.push('-map', videoStreamRef);
     } else {
       args.push('-map', '0:v:0');
     }
@@ -95,7 +109,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     if (audio) args.push('-map', '1:a:0', '-shortest');
     else args.push('-map', '0:a:0?');
 
-    // Universal compatibility settings requested by user
+    // Universal compatibility settings
     args.push(
       '-c:v', 'libx264',
       '-preset', 'medium',
